@@ -76,7 +76,7 @@ tipos_contrato = {
     "Contrato de Agendamento de Artistas": [
         "Cláusula 1: O agendamento será confirmado após aprovação.",
         "Cláusula 2: Pagamento deve ser realizado conforme forma escolhida.",
-        "Cláusula 3: O contrato é válido pelo prazo selecionado."
+        "Cláusula 3: O contrato é válido para o evento na data e horário informados."
     ]
 }
 
@@ -86,8 +86,13 @@ st.subheader("Cláusulas do Contrato")
 for c in tipos_contrato[tipo]:
     st.write(f"- {c}")
 
-# Prazo do contrato
-prazo = st.selectbox("Prazo do contrato (meses)", [3,6,12])
+# Prazo do contrato ou data do evento
+if tipo == "Contrato de Agendamento de Artistas":
+    data_evento = st.date_input("Data do Evento")
+    hora_inicio = st.time_input("Hora de Início")
+    hora_fim = st.time_input("Hora de Término")
+else:
+    prazo = st.selectbox("Prazo do contrato (meses)", [3,6,12])
 
 # Forma de pagamento (somente se não for parceria)
 forma_pagamento = None
@@ -119,7 +124,10 @@ if st.button("Enviar Contrato"):
         contrato = {
             "tipo": tipo,
             "clausulas": tipos_contrato[tipo],
-            "prazo_meses": prazo,
+            "prazo_meses": prazo if tipo != "Contrato de Agendamento de Artistas" else None,
+            "data_evento": str(data_evento) if tipo == "Contrato de Agendamento de Artistas" else None,
+            "hora_inicio": str(hora_inicio) if tipo == "Contrato de Agendamento de Artistas" else None,
+            "hora_fim": str(hora_fim) if tipo == "Contrato de Agendamento de Artistas" else None,
             "forma_pagamento": forma_pagamento if forma_pagamento else "Isento (Parceria)",
             "dados_identidade": {
                 "nome": nome_cliente,
@@ -141,82 +149,3 @@ if st.button("Enviar Contrato"):
         st.session_state.contratos.append(contrato)
         salvar_contratos()
         st.success("Contrato enviado e salvo com sucesso!")
-
-st.markdown("---")
-
-# --------------------------
-# Área de login administrativo
-# --------------------------
-st.header("Área de Login Administrativo")
-
-if 'admin_logado' not in st.session_state:
-    st.session_state.admin_logado = None
-
-email_login = st.text_input("Email", key="login_email")
-senha_login = st.text_input("Senha", type="password", key="login_senha")
-botao_login = st.button("Entrar")
-
-if botao_login:
-    if email_login == st.session_state.admin_principal["email"] and senha_login == st.session_state.admin_principal["senha"]:
-        st.session_state.admin_logado = "principal"
-        st.success("Logado como Administrador Principal")
-    else:
-        admin_match = next((a for a in st.session_state.admins if a["email"] == email_login and a["senha"] == senha_login), None)
-        if admin_match:
-            st.session_state.admin_logado = email_login
-            st.success("Logado como Administrador Comum")
-        else:
-            st.error("Credenciais inválidas")
-
-# --------------------------
-# Área administrativa
-# --------------------------
-if st.session_state.admin_logado:
-    st.markdown("---")
-    st.header("Painel Administrativo")
-
-    # Botão para logout
-    if st.button("Sair"):
-        st.session_state.admin_logado = None
-        st.experimental_rerun()
-
-    # ADMIN PRINCIPAL
-    if st.session_state.admin_logado == "principal":
-        st.subheader("Gerenciar Administradores")
-
-        with st.form("form_cadastrar_admin"):
-            novo_email = st.text_input("Email do novo administrador")
-            nova_senha = st.text_input("Senha do novo administrador", type="password")
-            enviar_admin = st.form_submit_button("Cadastrar Administrador")
-            if enviar_admin:
-                if novo_email.strip() == "" or nova_senha.strip() == "":
-                    st.error("Email e senha são obrigatórios.")
-                else:
-                    if any(a["email"] == novo_email for a in st.session_state.admins):
-                        st.error("Já existe um administrador com esse email.")
-                    else:
-                        st.session_state.admins.append({"email": novo_email, "senha": nova_senha})
-                        salvar_admins()
-                        st.success(f"Administrador {novo_email} cadastrado!")
-
-        st.markdown("---")
-
-    # Ambos (principal e admins comuns) podem editar contratos
-    st.subheader("Contratos Cadastrados")
-    if len(st.session_state.contratos) == 0:
-        st.info("Nenhum contrato cadastrado ainda.")
-    else:
-        contratos = st.session_state.contratos
-        contrato_ids = list(range(len(contratos)))
-        contrato_selecionado = st.selectbox("Selecione um contrato para visualizar/editar", contrato_ids)
-
-        contrato = contratos[contrato_selecionado]
-
-        st.write(f"**Tipo:** {contrato['tipo']}")
-        st.write("**Cláusulas:**")
-        for c in contrato["clausulas"]:
-            st.write(f"- {c}")
-        st.write(f"**Prazo (meses):** {contrato['prazo_meses']}")
-        st.write(f"**Forma de pagamento:** {contrato['forma_pagamento']}")
-
-        # Campos editáveis (administrador comum edita só contato e localização, principal pode
